@@ -1,0 +1,17 @@
+Project layout follows structure suggested by Kenneth Reitz:
+https://docs.python-guide.org/writing/structure/
+https://kennethreitz.org/essays/2013/01/27/repository-structure-and-python
+https://github.com/navdeep-G/samplemod
+
+import with:
+python
+>>> import hanhoppe.tile_utils as tu
+>>> tu.say_hello()
+
+run with:
+python -m hanhoppe
+
+note that although repo name may contain hyphens, module directory should not contain hyphens.
+if module name contains hyphens, you'll need to use importlib.import_module() to import.
+
+https://en.wikipedia.org/wiki/Tessellation

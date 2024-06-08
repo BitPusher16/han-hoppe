@@ -15,3 +15,6 @@ note that although repo name may contain hyphens, module directory should not co
 if module name contains hyphens, you'll need to use importlib.import_module() to import.
 
 https://en.wikipedia.org/wiki/Tessellation
+
+name python modules using PEP-8 convention:
+https://stackoverflow.com/questions/711884/python-naming-conventions-for-modules

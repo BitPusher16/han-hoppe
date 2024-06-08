@@ -4,7 +4,7 @@ import cv2 as cv
 import numpy as np
 
 
-def download_and_tessellate(
+def download_and_tesselate(
     tile_url,
     sat_qk_nw,
     sat_w_tiles,
@@ -12,62 +12,66 @@ def download_and_tessellate(
     aerial_lod
 ):
 
-    # sat tile:
-    # https://t.ssl.ak.tiles.virtualearth.net/tiles/
-    # a021230030223.jpeg?g=14543&n=z&prx=1
-    # 021230030223 has 12 digits.
+    tile_cache = os.path.join(os.getcwd(), 'data/rasters/tile_cache')
+    mosaic_dir = os.path.join(os.getcwd(), 'data/rasters/mosaics')
 
-    #tile_url = 'https://t.ssl.ak.tiles.virtualearth.net/tiles/' + \
-    #    'a[QUADKEY].jpeg?g=14543&n=z&prx=1'
+    get_tiles(sat_qk_nw, sat_w_tiles, sat_h_tiles, tile_url,
+        tile_cache, '.jpg')
 
-    #sat_qk_nw = '021230021313'
-    #sat_qk_nw = '21'
-    #sat_w_tiles = 2
-    #sat_h_tiles = 2
+    tesselate(sat_qk_nw, sat_w_tiles, sat_h_tiles,
+        tile_cache, '.jpg', mosaic_dir, '.png')
 
-    # https://t.ssl.ak.tiles.virtualearth.net/tiles/
-    # a02123003023130.jpeg?g=14543&n=z&prx=1
-    #url = 'https://t.ssl.ak.tiles.virtualearth.net/tiles/' + \
-    #    'a02123003023130.jpeg?g=14543&n=z&prx=1'
+    get_tiles(sat_qk_nw + '00', sat_w_tiles*4, sat_h_tiles*4, tile_url,
+        tile_cache, '.jpg')
 
-    sat_x_nw, sat_y_nw, sat_lod = qk_to_x_y_lod(sat_qk_nw)
-    #print(sat_x_nw, sat_y_nw, sat_lod)
+    tesselate(sat_qk_nw + '00', sat_w_tiles*4, sat_h_tiles*4,
+        tile_cache, '.jpg', mosaic_dir, '.png')
 
-    for x in range(sat_x_nw, sat_x_nw + sat_w_tiles):
-        for y in range(sat_y_nw, sat_y_nw + sat_h_tiles):
-            sat_qk_curr = x_y_lod_to_qk(x, y, sat_lod)
 
-            url = tile_url.replace('[QUADKEY]', sat_qk_curr)
-            out_path = os.path.join(os.getcwd(),
-                'data/rasters/tile_cache/' + sat_qk_curr + '.jpg')
+def get_tiles(qk_nw, w_tiles, h_tiles, tile_url, dest_dir, extension):
+    x_nw, y_nw, lod = qk_to_x_y_lod(qk_nw)
+
+    for x in range(x_nw, x_nw + w_tiles):
+        for y in range(y_nw, y_nw + h_tiles):
+            qk_curr = x_y_lod_to_qk(x, y, lod)
+
+            url = tile_url.replace('[QUADKEY]', qk_curr)
+            out_path = os.path.join(dest_dir, qk_curr + extension)
             if os.path.exists(out_path):
-                print('exists: ' + out_path)
+                print('tile exists: ' + out_path)
             else:
                 print('downloading: ' + out_path)
                 response = requests.get(url)
                 with open(out_path, 'wb') as out_file:
                     out_file.write(response.content)
 
-    # tesselate tiles to create mosaic.
-    mosaic = np.zeros((256 * sat_h_tiles,256 * sat_w_tiles,3), np.uint8)
-    mosaic_out_path = os.path.join(os.getcwd(),
-        'data/rasters/mosaics/021230021313_mos.jpg')
+def tesselate(
+    qk_nw, w_tiles, h_tiles, tile_cache, tile_ext,
+    mosaic_dir, mosaic_ext
+):
+    x_nw, y_nw, lod = qk_to_x_y_lod(qk_nw)
+    mosaic_out_path = os.path.join(mosaic_dir,
+        qk_nw + '_w' + str(w_tiles) + '_h' + str(h_tiles) + mosaic_ext)
 
-    for x in range(sat_x_nw, sat_x_nw + sat_w_tiles):
-        for y in range(sat_y_nw, sat_y_nw + sat_h_tiles):
-            sat_qk_curr = x_y_lod_to_qk(x, y, sat_lod)
+    if os.path.exists(mosaic_out_path):
+        print('mosaic exists: ' + mosaic_out_path)
+    else:
+        print('tesselating: ' + mosaic_out_path)
+        mosaic = np.zeros((256 * h_tiles,256 * w_tiles,3), np.uint8)
 
-            tile_path = os.path.join(os.getcwd(),
-                'data/rasters/tile_cache/' + sat_qk_curr + '.jpg')
-            img = cv.imread(tile_path)
+        for x in range(x_nw, x_nw + w_tiles):
+            for y in range(y_nw, y_nw + h_tiles):
+                qk_curr = x_y_lod_to_qk(x, y, lod)
 
-            x_offset = x - sat_x_nw
-            y_offset = y - sat_y_nw
-            mosaic[y_offset*256:(y_offset+1)*256, x_offset*256:(x_offset+1)*256,:] = img
-            #mosaic[0:256,0:256,:] = img
+                tile_path = os.path.join(tile_cache, qk_curr + tile_ext)
+                img = cv.imread(tile_path)
 
-    cv.imwrite(mosaic_out_path, mosaic)
+                x_offset = x - x_nw
+                y_offset = y - y_nw
+                mosaic[y_offset*256:(y_offset+1)*256, x_offset*256:(x_offset+1)*256,:] = img
+                #mosaic[0:256,0:256,:] = img
 
+        cv.imwrite(mosaic_out_path, mosaic)
 
 # https://learn.microsoft.com/en-us/bingmaps/articles/bing-maps-tile-system
 def x_y_lod_to_qk(x, y, lod):

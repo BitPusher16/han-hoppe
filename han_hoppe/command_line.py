@@ -21,7 +21,7 @@ def parse_args():
         json_data = json.load(task_file)
 
     print(json_data)
-    tu.download_and_tessellate(
+    tu.download_and_tesselate(
         json_data['tile_url'],
         json_data['sat_qk_nw'],
         json_data['sat_w_tiles'],

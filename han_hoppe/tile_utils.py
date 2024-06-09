@@ -3,6 +3,7 @@ import os
 import cv2 as cv
 import numpy as np
 
+debug_img_path = os.path.join(os.getcwd(), 'data/rasters/debug.png')
 
 def download_and_tesselate(
     tile_url,
@@ -14,18 +15,81 @@ def download_and_tesselate(
 
     tile_cache = os.path.join(os.getcwd(), 'data/rasters/tile_cache')
     mosaic_dir = os.path.join(os.getcwd(), 'data/rasters/mosaics')
+    #debug_img_path = os.path.join(mosaic_dir, 'debug.png')
+
+    lod_diff = aerial_lod - len(sat_qk_nw)
 
     get_tiles(sat_qk_nw, sat_w_tiles, sat_h_tiles, tile_url,
         tile_cache, '.jpg')
 
-    tesselate(sat_qk_nw, sat_w_tiles, sat_h_tiles,
+    sat_img = tesselate(sat_qk_nw, sat_w_tiles, sat_h_tiles,
         tile_cache, '.jpg', mosaic_dir, '.png')
 
-    get_tiles(sat_qk_nw + '00', sat_w_tiles*4, sat_h_tiles*4, tile_url,
-        tile_cache, '.jpg')
+    get_tiles(sat_qk_nw + '0'*lod_diff, sat_w_tiles*(2**lod_diff), sat_h_tiles*(2**lod_diff),
+      tile_url, tile_cache, '.jpg')
 
-    tesselate(sat_qk_nw + '00', sat_w_tiles*4, sat_h_tiles*4,
-        tile_cache, '.jpg', mosaic_dir, '.png')
+    aer_img = tesselate(sat_qk_nw + '0'*lod_diff, sat_w_tiles*(2**lod_diff), 
+        sat_h_tiles*(2**lod_diff), tile_cache, '.jpg', mosaic_dir, '.png')
+
+    # create pyramid, with sat in coarsest level (12 for bing maps)
+    # and aerial in finest level (15).
+    # populate intermediate levels with downscaled fine level.
+    # upscale sat layer to size of aerial layer, and transfer structure from aerial.
+
+    pyr = []
+    #cv.imwrite(debug_img_path, aer_img)
+    pyr.append(aer_img)
+    aer_h, aer_w, *_ = aer_img.shape
+    for i in range(1, aerial_lod - len(sat_qk_nw)):
+        fac = 2 ** i
+        intermed = cv.resize(
+            aer_img, (aer_w//fac,aer_h//fac), interpolation=cv.INTER_AREA)
+        pyr.append(intermed)
+    pyr.append(sat_img)
+    print('num layers: ' + str(len(pyr)))
+
+    sat_upscaled = cv.resize(sat_img, (aer_w,aer_h), interpolation=cv.INTER_CUBIC)
+    cv.imwrite(debug_img_path, sat_upscaled)
+
+    # https://docs.opencv.org/4.x/d4/d13/tutorial_py_filtering.html
+    # opencv provides a function cv.filter2D() to convolve a kernel with an image.
+
+    structure = structure_transfer(sat_upscaled, aer_img)
+
+
+def structure_transfer(color, structure):
+    print(color.shape)
+    print(structure.shape)
+
+
+    color_f = color.astype(np.float32)/255
+    structure_f = structure.astype(np.float32)/255
+    #color_f = cv.cvtColor(color.astype(np.float32)/255, cv.COLOR_RGB2Lab)
+    #structure_f = cv.cvtColor(structure.astype(np.float32)/255, cv.COLOR_RGB2Lab)
+    epsilon = np.zeros(color_f.shape, np.float32) + 0.000001
+
+    color_lab = cv.cvtColor(color_f, cv.COLOR_RGB2Lab)
+    color_mu = cv.GaussianBlur(color_lab, (21,21), sigmaX=4, sigmaY=4)
+    color_diff = color_f - color_mu
+    color_sq = np.square(color_diff)
+    color_sigma = np.sqrt(cv.GaussianBlur(color_sq, (21,21), sigmaX=4, sigmaY=4))
+    #color_z = (color_f - color_mu)/(color_sigma + epsilon)
+
+    structure_lab = cv.cvtColor(structure_f, cv.COLOR_RGB2Lab)
+    structure_mu = cv.GaussianBlur(structure_lab, (21,21), sigmaX=4, sigmaY=4)
+    structure_diff = structure_f - structure_mu
+    structure_sq = np.square(structure_diff)
+    structure_sigma = np.sqrt(cv.GaussianBlur(structure_sq, (21,21), sigmaX=4, sigmaY=4))
+    structure_z = (structure_f - structure_mu)/(structure_sigma + epsilon)
+
+    v_prime = color_mu + np.multiply(structure_z, color_sigma)
+    v_rgb = cv.cvtColor(v_prime*255, cv.COLOR_Lab2RGB)
+
+    #deb = cv.normalize(structure_z, None, 255, 0, cv.NORM_MINMAX, cv.CV_8U)
+    #cv.imwrite(debug_img_path, deb)
+    #cv.imwrite(debug_img_path, cv.cvtColor((v_prime*255).astype(np.uint8), cv.COLOR_Lab2RGB))
+    cv.imwrite(debug_img_path, v_prime*255)
+
 
 
 def get_tiles(qk_nw, w_tiles, h_tiles, tile_url, dest_dir, extension):
@@ -55,6 +119,7 @@ def tesselate(
 
     if os.path.exists(mosaic_out_path):
         print('mosaic exists: ' + mosaic_out_path)
+        mosaic = cv.imread(mosaic_out_path)
     else:
         print('tesselating: ' + mosaic_out_path)
         mosaic = np.zeros((256 * h_tiles,256 * w_tiles,3), np.uint8)
@@ -72,6 +137,7 @@ def tesselate(
                 #mosaic[0:256,0:256,:] = img
 
         cv.imwrite(mosaic_out_path, mosaic)
+    return mosaic
 
 # https://learn.microsoft.com/en-us/bingmaps/articles/bing-maps-tile-system
 def x_y_lod_to_qk(x, y, lod):

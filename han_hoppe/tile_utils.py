@@ -2,6 +2,7 @@ import requests
 import os
 import cv2 as cv
 import numpy as np
+import matplotlib.pyplot as plt
 
 debug_img_path = os.path.join(os.getcwd(), 'data/rasters/debug.png')
 
@@ -64,31 +65,34 @@ def structure_transfer(color, structure):
 
     color_f = color.astype(np.float32)/255
     structure_f = structure.astype(np.float32)/255
-    #color_f = cv.cvtColor(color.astype(np.float32)/255, cv.COLOR_RGB2Lab)
-    #structure_f = cv.cvtColor(structure.astype(np.float32)/255, cv.COLOR_RGB2Lab)
     epsilon = np.zeros(color_f.shape, np.float32) + 0.000001
 
-    color_lab = cv.cvtColor(color_f, cv.COLOR_RGB2Lab)
+    color_lab = cv.cvtColor(color_f, cv.COLOR_BGR2Lab)
     color_mu = cv.GaussianBlur(color_lab, (21,21), sigmaX=4, sigmaY=4)
-    color_diff = color_f - color_mu
+    color_diff = color_lab - color_mu
     color_sq = np.square(color_diff)
     color_sigma = np.sqrt(cv.GaussianBlur(color_sq, (21,21), sigmaX=4, sigmaY=4))
     #color_z = (color_f - color_mu)/(color_sigma + epsilon)
 
-    structure_lab = cv.cvtColor(structure_f, cv.COLOR_RGB2Lab)
+    structure_lab = cv.cvtColor(structure_f, cv.COLOR_BGR2Lab)
     structure_mu = cv.GaussianBlur(structure_lab, (21,21), sigmaX=4, sigmaY=4)
-    structure_diff = structure_f - structure_mu
+    structure_diff = structure_lab - structure_mu
     structure_sq = np.square(structure_diff)
     structure_sigma = np.sqrt(cv.GaussianBlur(structure_sq, (21,21), sigmaX=4, sigmaY=4))
-    structure_z = (structure_f - structure_mu)/(structure_sigma + epsilon)
+    structure_z = (structure_lab - structure_mu)/(structure_sigma + epsilon)
 
     v_prime = color_mu + np.multiply(structure_z, color_sigma)
-    v_rgb = cv.cvtColor(v_prime*255, cv.COLOR_Lab2RGB)
+    v_bgr = cv.cvtColor(v_prime, cv.COLOR_Lab2BGR)
 
     #deb = cv.normalize(structure_z, None, 255, 0, cv.NORM_MINMAX, cv.CV_8U)
     #cv.imwrite(debug_img_path, deb)
     #cv.imwrite(debug_img_path, cv.cvtColor((v_prime*255).astype(np.uint8), cv.COLOR_Lab2RGB))
-    cv.imwrite(debug_img_path, v_prime*255)
+    #color_mu_bgr = cv.cvtColor(color_mu, cv.COLOR_Lab2BGR)
+    #color_mu_bgr = cv.cvtColor(color_mu, cv.COLOR_Lab2BGR)
+    cv.imwrite(debug_img_path, v_bgr*255)
+
+    #plt.imshow(color_mu_bgr[:,:,::-1])
+    #plt.show()
 
 
 

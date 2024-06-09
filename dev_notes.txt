@@ -18,3 +18,10 @@ https://en.wikipedia.org/wiki/Tessellation
 
 name python modules using PEP-8 convention:
 https://stackoverflow.com/questions/711884/python-naming-conventions-for-modules
+
+matplotlib.pyplot is useful for debugging this code.
+pyplot.imshow depends on qt, which requires the following:
+sudo apt install qt6-base-dev
+sudo apt install libxcb-cursor0 # "no Qt platform plugin could be initialized" error
+pip install PyQt6
+

@@ -51,26 +51,33 @@ def download_and_tesselate(
     pyr.append(sat_img)
     print('num layers: ' + str(len(pyr)))
 
-    sat_upscaled = cv.resize(sat_img, (aer_w,aer_h), interpolation=cv.INTER_LINEAR)
-    # shift sat upscaled 8px up and 8px to the left.
-    # bing aerial imagery is offset from satellite. shift to correct.
-    shift = 16
-    sat_upscaled[:aer_h-shift,:] = sat_upscaled[shift:,:]
-    sat_upscaled[:,:aer_w-shift] = sat_upscaled[:,shift:]
-
-    cv.imwrite(debug_img_path, sat_upscaled)
+    #sat_upscaled = cv.resize(sat_img, (aer_w,aer_h), interpolation=cv.INTER_LINEAR)
+    ## shift sat upscaled 8px up and 8px to the left.
+    ## bing aerial imagery is offset from satellite. shift to correct.
+    #shift = 16
+    #sat_upscaled[:aer_h-shift,:] = sat_upscaled[shift:,:]
+    #sat_upscaled[:,:aer_w-shift] = sat_upscaled[:,shift:]
+    #cv.imwrite(debug_img_path, sat_upscaled)
 
 
     # https://docs.opencv.org/4.x/d4/d13/tutorial_py_filtering.html
     # opencv provides a function cv.filter2D() to convolve a kernel with an image.
 
-    structure = structure_transfer(sat_upscaled, aer_img)
+    #structure = structure_transfer(sat_upscaled, aer_img)
+    ##plt.imshow(structure[:,:,::-1])
+    ##plt.show()
+    #cv.imwrite(debug_img_path.replace('.png','_st.png'), structure)
+
+    sat_h, sat_w, *_ = sat_img.shape
+    structure = structure_transfer(
+        np.copy(sat_img),
+        cv.resize(aer_img, (sat_w,sat_h), interpolation=cv.INTER_AREA)
+    )
     #plt.imshow(structure[:,:,::-1])
     #plt.show()
-    cv.imwrite(debug_img_path.replace('.png','_st.png'), structure)
 
     for i in range(1, aerial_lod - len(sat_qk_nw)):
-        # factor by which structure image will be reduced.
+        # divide aerial image size by a factor to get target structure size.
         fac = 2 ** i
 
         num_layers = aerial_lod - len(sat_qk_nw) + 1
@@ -80,6 +87,7 @@ def download_and_tesselate(
         temp = np.copy(pyr[i]).astype(np.float32)
         structure_downsampled = cv.resize(
             structure, (aer_w//fac,aer_h//fac), interpolation=cv.INTER_AREA).astype(np.float32)
+
         # at index 0 (base of pyr), give all weight to original aerial image.
         # at index n-1 (peak of pyr), give all weight to structure image.
         temp = (temp * (1-structure_weight)) + (structure_downsampled * structure_weight)
@@ -138,9 +146,10 @@ def structure_transfer(color, structure):
 
     #debug_curr = np.divide((structure_lab - structure_mu),  (structure_sigma + epsilon))
     #debug_tmp = (debug_curr - debug_curr.min()) / (debug_curr.max() - debug_curr.min())
-    debug_tmp = structure_lab
-    plt.imshow(debug_tmp[:,:,:1:-1])
-    plt.show()
+
+    #debug_tmp = structure_lab
+    #plt.imshow(debug_tmp[:,:,:1:-1])
+    #plt.show()
 
     #structure_mu_sq = np.square(structure_mu)
     #structure_sq = np.square(structure_lab)

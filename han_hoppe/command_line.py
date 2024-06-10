@@ -11,7 +11,8 @@ def parse_args():
 
     if len(sys.argv) == 1:
         task_file = os.path.join(os.getcwd(),
-            'data/tasks/download_and_tesselate.json')
+            #'data/tasks/download_and_tesselate.json')
+            'data/tasks/central_park.json')
     else:
         task_file = sys.argv[1]
 

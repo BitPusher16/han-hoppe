@@ -1,5 +1,5 @@
 # han-hoppe
-Implementation of han and hoppe's algorithm for blending multiscale imagery.
+Implementation of Han and Hoppe's algorithm for blending multiscale imagery.
 
 https://hhoppe.com/proj/pyramid/
 
